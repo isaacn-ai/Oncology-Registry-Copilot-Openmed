@@ -1,5 +1,7 @@
-import sys
+﻿import sys
 from pathlib import Path
+
+import pandas as pd
 
 # Ensure src/ is importable when running from scripts/
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -7,11 +9,8 @@ SRC_PATH = PROJECT_ROOT / "src"
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
-from oncology_registry_copilot.pipeline import (
-    evaluate_preabstract,
-    generate_preabstract_csv,
-    run_ner_to_jsonl,
-)
+from oncology_registry_copilot.evaluation import compute_metrics
+from oncology_registry_copilot.pipeline import generate_preabstract_csv, run_ner_to_jsonl
 
 
 def main() -> None:
@@ -38,10 +37,11 @@ def main() -> None:
     )
     print(f"     Wrote {m} rows -> {preabstract_csv}")
 
-    print("\n[3/3] Evaluating pre-abstract (normalized, v2)")
-    report = evaluate_preabstract(preabstract_csv)
-    print("\n=== PRE-ABSTRACT EVALUATION REPORT (NORMALIZED, v2) ===\n")
-    print(report.to_string(index=False))
+    print("\n[3/3] Evaluating pre-abstract (shared evaluator, v3)")
+    df = pd.read_csv(preabstract_csv)
+    metrics_df = compute_metrics(df)
+    print("\n=== PRE-ABSTRACT EVALUATION REPORT (NORMALIZED, v3 - shared evaluator) ===\n")
+    print(metrics_df[["field", "support", "correct", "accuracy"]].to_string(index=False))
     print("\n======================================================\n")
 
     print("Outputs:")

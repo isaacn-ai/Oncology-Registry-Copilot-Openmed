@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import re
 from dataclasses import dataclass
@@ -12,15 +12,41 @@ class FieldPrediction:
     evidence_end: Optional[int]
 
     def evidence_span(self, note_text: str, max_len: int = 160) -> Optional[str]:
-        """Return a short evidence snippet from the note text."""
+        """
+        Return a short evidence snippet from the note text.
+
+        Clinical QA requirements:
+        - Evidence must be traceable (verbatim) and not start mid-word.
+        - Evidence should be display-friendly (single-line) but derived from note text.
+        """
         if self.evidence_start is None or self.evidence_end is None:
             return None
+
+        # Base window around the evidence span
         start = max(0, self.evidence_start - 40)
         end = min(len(note_text), self.evidence_end + 40)
-        snippet = note_text[start:end].replace("\n", " ")
-        if len(snippet) > max_len:
-            snippet = snippet[: max_len - 3] + "..."
-        return snippet
+
+        # Expand to word boundaries so we don't cut tokens like "breast" -> "ast"
+        # Move start left until boundary (or max 80 chars)
+        left_limit = max(0, self.evidence_start - 80)
+        while start > left_limit and start < len(note_text) and note_text[start].isalnum():
+            start -= 1
+
+        # Move end right until boundary (or max 80 chars)
+        right_limit = min(len(note_text), self.evidence_end + 80)
+        while end < right_limit and end > 0 and end <= len(note_text) and end - 1 < len(note_text) and note_text[end - 1].isalnum():
+            end += 1
+
+        snippet_raw = note_text[start:end]
+
+        # Normalize Windows line endings and collapse whitespace to single spaces
+        s = snippet_raw.replace("\r\n", "\n").replace("\r", "\n")
+        s = re.sub(r"\n\s*", " ", s)          # join lines cleanly
+        s = re.sub(r"[ \t]+", " ", s).strip() # collapse spaces
+
+        if len(s) > max_len:
+            s = s[: max_len - 3].rstrip() + "..."
+        return s
 
 
 def _pick_best(

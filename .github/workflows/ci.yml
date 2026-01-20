@@ -25,6 +25,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run CI check (pipeline + eval + artifacts)
+      - name: Run unit tests (pytest)
+        run: |
+          python -m pytest -q
+
+      - name: Run CI check (pipeline + eval + artifacts + thresholds)
         run: |
           powershell -ExecutionPolicy Bypass -File .\scripts\ci_check.ps1

@@ -1,3 +1,4 @@
 openmed[hf] 
 pandas 
 pydantic 
+pytest>=8.0.0

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
+import re
 
 
 DEFAULT_FIELDS = [
@@ -58,6 +59,31 @@ def normalize_stage(value) -> Optional[str]:
 
     return s
 
+
+
+def stage_signal_present(note_text) -> bool:
+    """Return True if the note likely contains stage information.
+
+    Clinical rationale:
+    Do not score stage for notes that do not mention stage or TNM, to avoid
+    incentivizing hallucinated stage.
+    """
+    if note_text is None:
+        return False
+    # pandas may give NaN floats
+    try:
+        import pandas as pd
+        if pd.isna(note_text):
+            return False
+    except Exception:
+        pass
+
+    s = str(note_text).lower()
+    if "stage" in s or re.search(r"\bstg\b", s):
+        return True
+    if re.search(r"\bp?[Tt]\d+[Nn]\d+M\d+\b", s):
+        return True
+    return False
 
 def normalize_primary_site(value) -> Optional[str]:
     s = _norm_str(value)
@@ -136,6 +162,10 @@ def compute_metrics(df: pd.DataFrame, fields: Optional[List[str]] = None) -> pd.
         correct = 0
 
         for _, r in df.iterrows():
+            note_text = r.get("note_text")
+            if field == "stage" and not stage_signal_present(note_text):
+                continue
+
             gt = normalize_for_field(field, r.get(gt_col))
             pred = normalize_for_field(field, r.get(pred_col))
 
@@ -197,6 +227,11 @@ def generate_error_report(df: pd.DataFrame, fields: Optional[List[str]] = None) 
             gt_col = f"{field}_gt"
             pred_col = f"{field}_pred"
             ev_col = f"{field}_evidence"
+
+            note_text = r.get("note_text")
+
+            if field == "stage" and not stage_signal_present(note_text):
+                continue
 
             gt_norm = normalize_for_field(field, r.get(gt_col))
             pred_norm = normalize_for_field(field, r.get(pred_col))

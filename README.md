@@ -168,6 +168,7 @@ Outputs:
 
 - `outputs/ner_entities.jsonl`  
 - `data/processed/preabstract_with_evidence.csv`
+
 ---
 
 ## 5.1 One-command reproducibility (Windows PowerShell)
@@ -187,6 +188,23 @@ Artifacts are written locally (and are not committed to git):
 - `data/processed/preabstract_with_evidence.csv`  
 - `outputs/evaluation/eval_metrics.csv`  
 - `outputs/evaluation/eval_errors.csv`  
+
+## Reviewer UI (human-in-the-loop)
+
+This repo includes a lightweight **Streamlit** reviewer UI that lets a user:
+
+- Select a synthetic clinical note (case/note)
+- Review the model’s predicted pre-abstract fields
+- See the evidence snippet used for each prediction
+- Edit any field values as needed
+- Save a structured correction record for audit / QA / iterative improvement
+
+### Run the UI
+
+First, ensure artifacts exist (run the pipeline once):
+
+```powershell
+python scripts/run_full_pipeline.py
 
 ---
 

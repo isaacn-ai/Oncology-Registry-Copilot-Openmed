@@ -46,8 +46,12 @@ Data flow:
 - Output: `data/processed/preabstract_with_evidence.csv`
 
 4) Evaluation  
-- Baseline normalized evaluation: `src/oncology_registry_copilot/pipeline.py` + `scripts/evaluate_preabstract.py`  
-- Detailed metrics + error report: `src/oncology_registry_copilot/evaluation.py` + `scripts/run_detailed_eval.py`
+- Baseline evaluation (shared evaluator, availability-aware stage):  
+  - `src/oncology_registry_copilot/evaluation.py`
+  - `scripts/evaluate_preabstract.py`
+- Detailed metrics + error report:  
+  - `src/oncology_registry_copilot/evaluation.py`
+  - `scripts/run_detailed_eval.py`
 
 5) Reviewer UI (human-in-the-loop)  
 - Streamlit app: `app/app.py`  
@@ -71,6 +75,7 @@ oncology-registry-copilot-openmed/
 ├─ notebooks/
 ├─ outputs/
 │  ├─ ner_entities.jsonl
+│  ├─ review/
 │  └─ evaluation/
 │     ├─ eval_metrics.csv
 │     └─ eval_errors.csv
@@ -81,6 +86,7 @@ oncology-registry-copilot-openmed/
 │  ├─ evaluate_preabstract.py
 │  ├─ run_detailed_eval.py
 │  ├─ run_full_pipeline.py
+│  ├─ ci_check.ps1
 │  ├─ reproduce.ps1
 │  └─ run.bat
 ├─ src/
@@ -93,43 +99,39 @@ oncology-registry-copilot-openmed/
 └─ requirements.txt
 ```
 
----
-
 ## 4. Installation and setup (Windows)
 
 ### 4.1 Clone the repository
 
-```powershell
+```bash
 git clone https://github.com/isaacn-ai/Oncology-Registry-Copilot-Openmed.git
 cd Oncology-Registry-Copilot-Openmed
 ```
 
 ### 4.2 Create and activate a virtual environment
 
-```powershell
+```bash
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
 ### 4.3 Install dependencies
 
-```powershell
+```bash
 pip install -r requirements.txt
 ```
 
----
-
-## 5. Running the full pipeline
+## 5. Run the full pipeline
 
 ### Option A — Direct Python command
 
-```powershell
+```bash
 python scripts/run_full_pipeline.py
 ```
 
 ### Option B — One-command reproducibility (Windows PowerShell)
 
-Runs the full pipeline **and** the detailed evaluation:
+Runs the full pipeline and the detailed evaluation:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/reproduce.ps1
@@ -141,24 +143,24 @@ powershell -ExecutionPolicy Bypass -File scripts/reproduce.ps1
 scripts\run.bat
 ```
 
-### Outputs
+Outputs:
 
 - `outputs/ner_entities.jsonl`
 - `data/processed/preabstract_with_evidence.csv`
 
----
+## 6. Evaluation
 
-## 5.1 Evaluation
+### 6.1 Baseline evaluation (shared evaluator, availability-aware stage)
 
-### Baseline normalized evaluation (accuracy per field)
+This evaluation uses the shared evaluator in `src/oncology_registry_copilot/evaluation.py`, including an “availability-aware” rule for stage: stage is only scored for notes that contain a stage/TNM signal, to avoid penalizing missing evidence.
 
-```powershell
+```bash
 python scripts/evaluate_preabstract.py
 ```
 
-### Detailed metrics + error report (accuracy / precision / recall / F1)
+### 6.2 Detailed metrics + error report (accuracy / precision / recall / F1)
 
-```powershell
+```bash
 python scripts/run_detailed_eval.py
 ```
 
@@ -167,43 +169,56 @@ Writes:
 - `outputs/evaluation/eval_metrics.csv`
 - `outputs/evaluation/eval_errors.csv`
 
----
+## 7. CI gate (local)
 
-## 5.2 Reviewer UI (human-in-the-loop)
+A fast-fail local CI gate script is included:
 
-This repo includes a lightweight **Streamlit** reviewer UI that lets a user:
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/ci_check.ps1
+```
+
+It runs:
+
+- Unit tests (pytest)
+- Full pipeline
+- Detailed evaluation
+- Artifact existence checks
+- Metric regression gate
+
+## 8. Reviewer UI (human-in-the-loop)
+
+This repo includes a lightweight Streamlit reviewer UI that lets a user:
 
 - Select a synthetic clinical note (case/note)
 - Review predicted registry fields
 - See the evidence snippet used for each prediction
 - Edit any field values as needed
 - Save a structured correction record for QA / audit / future improvement
+- Export saved corrections to CSV (from the sidebar action)
 
 ### Run the UI
 
 First, ensure artifacts exist (run the pipeline once):
 
-```powershell
+```bash
 python scripts/run_full_pipeline.py
 ```
 
 Then start the app:
 
-```powershell
+```bash
 streamlit run app/app.py
 ```
 
-Open the URL shown in your terminal (typically `http://localhost:8501`).
+Open the URL shown in your terminal (typically http://localhost:8501).
 
 ### Saved corrections
 
-When you click **Save review record**, the app writes JSON correction files to:
+When you click Save review record, the app writes JSON correction files to:
 
 - `outputs/review/`
 
----
-
-## 6. Synthetic data
+## 9. Synthetic data
 
 The demo dataset lives in:
 
@@ -213,11 +228,13 @@ Each row contains:
 
 - `case_id`, `note_id`, `note_type`, `note_date`
 - `note_text` (synthetic clinical note)
-- Ground truth fields:
-  - `primary_site_gt`
-  - `histology_gt`
-  - `stage_gt`
-  - `er_status_gt`, `pr_status_gt`, `her2_status_gt`
+
+Ground truth fields:
+
+- `primary_site_gt`
+- `histology_gt`
+- `stage_gt`
+- `er_status_gt`, `pr_status_gt`, `her2_status_gt`
 
 The dataset is small by design but structured to resemble registry-relevant documentation:
 
@@ -225,9 +242,7 @@ The dataset is small by design but structured to resemble registry-relevant docu
 - Metastatic lung cancer oncology consult
 - Colon cancer discharge summary with TNM (pT3N0M0)
 
----
-
-## 7. Field mapping and evidence
+## 10. Field mapping and evidence
 
 Core logic:
 
@@ -241,35 +256,32 @@ It implements:
 
 The mapping uses a combination of:
 
-- OpenMed entities (labels such as `Cancer`, `Organ`, etc.)
+- OpenMed entities (labels such as Cancer, Organ, etc.)
 - Regex patterns for:
   - histology phrases (carcinoma, adenocarcinoma, etc.)
-  - stage expressions (e.g., `Stage IV ...`, `pT3N0M0`)
+  - stage expressions (e.g., Stage IV ..., pT3N0M0)
   - biomarker patterns (ER, PR, HER2) with local “positive”/“negative” detection
 
 This is deliberately transparent and rule-based, acting as a bridge between NER outputs and registry-style fields.
 
----
-
-## 8. Evaluation methodology
+## 11. Evaluation methodology
 
 Evaluation is implemented in:
 
-- `src/oncology_registry_copilot/pipeline.py` (normalized evaluation)
-- `src/oncology_registry_copilot/evaluation.py` (detailed metrics + error report)
+- `src/oncology_registry_copilot/evaluation.py` (shared evaluator, detailed metrics, error report)
+- `scripts/evaluate_preabstract.py` (baseline report using shared evaluator)
+- `scripts/run_detailed_eval.py` (writes metrics + error report CSVs)
 
 Normalization (to keep metrics clinically meaningful in this demo):
 
-- Primary site → collapsed to `breast` / `lung` / `colon`
-- Histology → collapsed to patterns like `adenocarcinoma`, `invasive ductal carcinoma`
-- Stage → normalize:
-  - “Stage IV …” → `iv`
-  - `pT3N0M0` → `ii` (for this demo dataset)
-- Biomarkers → `positive` / `negative` / `unknown`, with blanks treated as `unknown`
+- Primary site → collapsed to breast / lung / colon
+- Histology → collapsed to patterns like adenocarcinoma, invasive ductal carcinoma
+- Stage → normalized to compact forms like ii, iia, iv
+- TNM strings like pT3N0M0 map to a demo stage normalization (ii)
+- Stage is only scored when the note contains a stage/TNM signal
+- Biomarkers → positive / negative / unknown, with blanks treated as unknown
 
----
-
-## 9. Limitations and future work
+## 12. Limitations and future work
 
 This repository is intentionally limited:
 
@@ -282,12 +294,10 @@ Possible next steps:
 
 - Expand the synthetic dataset and ground truth coverage
 - Add temporal reasoning and richer oncology abstractions
-- Improve the reviewer UI (bulk review, export corrections to CSV)
-- Add CI (GitHub Actions) to catch metric regressions on every push
+- Improve the reviewer UI (bulk review workflows, richer exports)
+- Add GitHub Actions CI to run the gate on every push
 
----
-
-## 10. Disclaimer
+## 13. Disclaimer
 
 This code is:
 
@@ -296,3 +306,13 @@ This code is:
 - not a medical device
 - not intended to process real patient data without appropriate safeguards, de-identification, and compliance review
 
+---
+
+## Why this fixes your pain immediately
+
+- You are no longer trying to paste Markdown through PowerShell parsing rules.
+- Codex edits the file directly and commits it.
+- The replacement uses real Unicode characters (—, →) and a clean directory tree that GitHub renders correctly.
+- Sections are renumbered and updated to match your current evaluator/CI pipeline changes.
+
+If you want the README to also mention `.gitattributes` line-ending normalization explicitly, Codex can add a short note under Installation or CI; it is optional and does not affect correctness.

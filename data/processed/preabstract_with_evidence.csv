@@ -1,0 +1,36 @@
+case_id,note_id,note_type,note_date,note_text,primary_site_gt,histology_gt,stage_gt,er_status_gt,pr_status_gt,her2_status_gt,primary_site_pred,primary_site_evidence,histology_pred,histology_evidence,stage_pred,stage_evidence,er_status_pred,er_status_evidence,pr_status_pred,pr_status_evidence,her2_status_pred,her2_status_evidence
+C001,N001,pathology_report,2024-03-12,"SPECIMEN: Left breast core biopsy.
+
+FINAL DIAGNOSIS:
+- Invasive ductal carcinoma, grade 2.
+- Tumor size in core: approximately 1.8 cm.
+- Estrogen receptor (ER): strongly positive in ~90% of tumor nuclei.
+- Progesterone receptor (PR): positive in ~60% of tumor nuclei.
+- HER2: negative by immunohistochemistry (1+).
+- Ki-67: 18%.
+
+COMMENT: Findings are consistent with primary breast carcinoma.",left breast,invasive ductal carcinoma,IIA,positive,positive,negative,primary breast carcinoma," COMMENT: Findings are consistent with primary breast carcinoma.",Invasive ductal carcinoma,"ast core biopsy.  FINAL DIAGNOSIS: - Invasive ductal carcinoma, grade 2. - Tumor size in core: approx",,,positive," size in core: approximately 1.8 cm. - Estrogen receptor (ER): strongly positive in ~90% of tumo",negative,"ly positive in ~90% of tumor nuclei. - Progesterone receptor (PR): positive in ~60% of tumor nuclei.",negative,"): positive in ~60% of tumor nuclei. - HER2: negative by immunohistochemistry (1+)."
+C002,N002,oncology_consult,2024-05-02,"Oncology consultation note.
+
+HISTORY:
+The patient is a 63-year-old male with a newly diagnosed right upper lobe lung mass.
+Biopsy confirmed adenocarcinoma of the lung. PET-CT shows multiple liver lesions and bone metastases.
+
+ASSESSMENT:
+Stage IV (metastatic) non-small cell lung cancer, adenocarcinoma subtype.
+No actionable EGFR or ALK alterations reported. PD-L1 expression low.
+
+PLAN:
+Start systemic therapy with platinum doublet chemotherapy and immunotherapy.",right upper lobe lung,lung adenocarcinoma,IV,unknown,unknown,unknown,Stage IV (metastatic) non-small cell lung cancer,"ns and bone metastases.  ASSESSMENT: Stage IV (metastatic) non-small cell lung cancer, adenocarcinoma subtype. No actionable",adenocarcinoma,"metastatic) non-small cell lung cancer, adenocarcinoma subtype. No actionable EGFR or ALK alt",Stage IV (metastatic) non-small cell lung cancer,"ns and bone metastases.  ASSESSMENT: Stage IV (metastatic) non-small cell lung cancer, adenocarcinoma subtype. No actionable",,,,,,
+C003,N003,discharge_summary,2024-07-19,"DISCHARGE SUMMARY:
+
+ADMISSION DIAGNOSIS:
+Sigmoid colon adenocarcinoma status post low anterior resection.
+
+HOSPITAL COURSE:
+The patient underwent elective low anterior resection for sigmoid colon cancer.
+Final pathology: moderately differentiated adenocarcinoma, tumor 3.2 cm, margins negative, 0/18 lymph nodes involved.
+No distant metastases noted on preoperative CT.
+
+DISCHARGE DIAGNOSIS:
+Resected sigmoid colon cancer, pathologic stage II (pT3N0M0).",sigmoid colon,colon adenocarcinoma,II,unknown,unknown,unknown,sigmoid colon cancer,"e CT.  DISCHARGE DIAGNOSIS: Resected sigmoid colon cancer, pathologic stage II (pT3N0M0).",Sigmoid colon adenocarcinoma,"HARGE SUMMARY:  ADMISSION DIAGNOSIS: Sigmoid colon adenocarcinoma status post low anterior resection.  ",pT3N0M0,"moid colon cancer, pathologic stage II (pT3N0M0).",,,,,,

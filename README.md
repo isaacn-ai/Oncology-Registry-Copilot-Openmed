@@ -1,50 +1,31 @@
 # Oncology Registry Copilot (OpenMed)
 
-A prototype oncology registry co-pilot that uses **OpenMed** clinical NLP to:
+A prototype oncology registry co-pilot built on **OpenMed** clinical NLP to:
 
-- Extract cancer-related entities from unstructured clinical notes.
+- Extract cancer-related signals from unstructured clinical notes (synthetic demo data).
 - Map them into a small set of **registry-style fields**:
   - Primary site
   - Histology
   - Stage
   - ER / PR / HER2 status
 - Generate a **pre-abstract CSV with evidence snippets** for each field.
-- Compute **field-level accuracy metrics** against synthetic ground truth.
+- Produce **evaluation reports** (metrics + case-level error analysis).
+- Provide a lightweight **human-in-the-loop reviewer UI** to correct outputs and save correction records.
 
-All of this is runnable end-to-end with a single command:
-
-    python scripts/run_full_pipeline.py
-
-or on Windows:
-
-    scripts\run.bat
-
-> **Important:** This project uses only synthetic, non-patient data.  
-> It is a **technical prototype**, not a production or clinical tool.
+**Important:** This project uses only synthetic, non-patient data. It is a technical prototype, not a production or clinical tool.
 
 ---
 
 ## 1. Problem and vision
 
-Cancer registries are critical for:
+Cancer registries are critical for quality reporting, epidemiology, and research, but registrars often spend significant time manually scanning pathology reports, oncology notes, and discharge summaries to abstract registry fields.
 
-- Quality reporting  
-- Epidemiology  
-- Research and real-world evidence  
+This repository demonstrates a minimal “Registry Copilot” workflow:
 
-But:
-
-- Registrars spend large amounts of time manually scanning pathology reports, oncology notes, and discharge summaries.
-- Staffing and workload pressures are well documented.
-- Most of the key data elements are present only in **unstructured text**.
-
-The long-term vision is an **Oncology Registry Copilot** that:
-
-- Reads clinical notes.
-- Pre-fills registry fields with **traceable evidence**.
-- Lets registrars work in **exception-review mode** instead of manual chart mining.
-
-This repository is a **minimal, fully reproducible end-to-end prototype** of that idea, built on top of OpenMed.
+- Read clinical notes.
+- Pre-fill registry fields with traceable evidence.
+- Evaluate performance and surface failures.
+- Support human review and correction in a simple UI.
 
 ---
 
@@ -52,152 +33,151 @@ This repository is a **minimal, fully reproducible end-to-end prototype** of tha
 
 Data flow:
 
-1. **Input**: synthetic clinical notes with ground truth fields  
-   - `data/raw/synthetic_oncology_notes.csv`
+1) Input synthetic notes + ground truth  
+- `data/raw/synthetic_oncology_notes.csv`
 
-2. **NER with OpenMed**  
-   - Script: `scripts/run_ner_to_jsonl.py`  
-   - Output: `outputs/ner_entities.jsonl`  
-   - Model: `oncology_detection_superclinical` from OpenMed
+2) NER with OpenMed → entities JSONL  
+- Script: `scripts/run_ner_to_jsonl.py`  
+- Output: `outputs/ner_entities.jsonl`
 
-3. **Field mapping + evidence packaging**  
-   - Module: `src/oncology_registry_copilot/field_mapping.py`  
-   - Script: `scripts/generate_preabstract_csv.py`  
-   - Output: `data/processed/preabstract_with_evidence.csv`  
-   - Fields:
-     - `primary_site_pred`, `histology_pred`, `stage_pred`
-     - `er_status_pred`, `pr_status_pred`, `her2_status_pred`
-     - Each with an associated `*_evidence` snippet from the note text
+3) Field mapping + evidence packaging  
+- Core mapping: `src/oncology_registry_copilot/field_mapping.py`  
+- Script: `scripts/generate_preabstract_csv.py`  
+- Output: `data/processed/preabstract_with_evidence.csv`
 
-4. **Evaluation (normalized)**  
-   - Module: `src/oncology_registry_copilot/pipeline.py` (`evaluate_preabstract`)  
-   - Script: `scripts/evaluate_preabstract.py` (thin wrapper)  
-   - Output: printed field-level accuracy report
+4) Evaluation  
+- Baseline normalized evaluation: `src/oncology_registry_copilot/pipeline.py` + `scripts/evaluate_preabstract.py`  
+- Detailed metrics + error report: `src/oncology_registry_copilot/evaluation.py` + `scripts/run_detailed_eval.py`
 
-5. **Orchestration**  
-   - Single-command runner: `scripts/run_full_pipeline.py`  
-   - Convenience wrapper for Windows: `scripts/run.bat`
+5) Reviewer UI (human-in-the-loop)  
+- Streamlit app: `app/app.py`  
+- Saves correction records to: `outputs/review/`
 
 ---
 
 ## 3. Project structure
 
-    oncology-registry-copilot-openmed/
-    ├─ configs/
-    ├─ data/
-    │  ├─ raw/
-    │  │  └─ synthetic_oncology_notes.csv
-    │  └─ processed/
-    │     └─ preabstract_with_evidence.csv
-    ├─ docs/
-    ├─ notebooks/
-    ├─ outputs/
-    │  └─ ner_entities.jsonl
-    ├─ scripts/
-    │  ├─ run_basic_ner.py
-    │  ├─ run_ner_to_jsonl.py
-    │  ├─ generate_preabstract_csv.py
-    │  ├─ evaluate_preabstract.py
-    │  ├─ run_full_pipeline.py
-    │  └─ run.bat
-    ├─ src/
-    │  └─ oncology_registry_copilot/
-    │     ├─ __init__.py
-    │     ├─ field_mapping.py
-    │     └─ pipeline.py
-    ├─ tests/
-    └─ requirements.txt
+```text
+oncology-registry-copilot-openmed/
+├─ app/
+│  └─ app.py
+├─ configs/
+├─ data/
+│  ├─ raw/
+│  │  └─ synthetic_oncology_notes.csv
+│  └─ processed/
+│     └─ preabstract_with_evidence.csv
+├─ docs/
+├─ notebooks/
+├─ outputs/
+│  ├─ ner_entities.jsonl
+│  └─ evaluation/
+│     ├─ eval_metrics.csv
+│     └─ eval_errors.csv
+├─ scripts/
+│  ├─ run_basic_ner.py
+│  ├─ run_ner_to_jsonl.py
+│  ├─ generate_preabstract_csv.py
+│  ├─ evaluate_preabstract.py
+│  ├─ run_detailed_eval.py
+│  ├─ run_full_pipeline.py
+│  ├─ reproduce.ps1
+│  └─ run.bat
+├─ src/
+│  └─ oncology_registry_copilot/
+│     ├─ __init__.py
+│     ├─ field_mapping.py
+│     ├─ pipeline.py
+│     └─ evaluation.py
+├─ tests/
+└─ requirements.txt
+```
 
 ---
 
-## 4. Installation and setup
+## 4. Installation and setup (Windows)
 
-### 4.1. Clone the repository
+### 4.1 Clone the repository
 
-    git clone https://github.com/isaacn-ai/Oncology-Registry-Copilot-Openmed.git
-    cd Oncology-Registry-Copilot-Openmed
+```powershell
+git clone https://github.com/isaacn-ai/Oncology-Registry-Copilot-Openmed.git
+cd Oncology-Registry-Copilot-Openmed
+```
 
-### 4.2. Create and activate a virtual environment (Windows)
+### 4.2 Create and activate a virtual environment
 
-    python -m venv .venv
-    .\.venv\Scripts\activate
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
 
-### 4.3. Install dependencies
+### 4.3 Install dependencies
 
-    pip install -r requirements.txt
-
-This will install:
-
-- `openmed[hf]` – clinical NLP toolkit and models  
-- `pandas`  
-- `pydantic` (for future extensions)  
+```powershell
+pip install -r requirements.txt
+```
 
 ---
 
 ## 5. Running the full pipeline
 
-Once dependencies are installed and the virtual environment is active, you can run:
+### Option A — Direct Python command
 
-### Option A – Direct Python command
+```powershell
+python scripts/run_full_pipeline.py
+```
 
-    python scripts/run_full_pipeline.py
+### Option B — One-command reproducibility (Windows PowerShell)
 
-### Option B – Windows convenience script
+Runs the full pipeline **and** the detailed evaluation:
 
-    scripts\run.bat
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/reproduce.ps1
+```
 
-The pipeline will:
+### Option C — Windows convenience script
 
-1. Run OpenMed NER over the synthetic notes.
-2. Generate the pre-abstract CSV with evidence.
-3. Print a normalized evaluation report, for example:
+```powershell
+scripts\run.bat
+```
 
-    === PRE-ABSTRACT EVALUATION REPORT (NORMALIZED, v2) ===
+### Outputs
 
-           field  total_cases  correct  accuracy
-    primary_site            3        3     1.000
-       histology            3        3     1.000
-           stage            3        2     0.667
-       er_status            3        3     1.000
-       pr_status            3        3     1.000
-     her2_status            3        3     1.000
-
-    ======================================================
-
-Outputs:
-
-- `outputs/ner_entities.jsonl`  
+- `outputs/ner_entities.jsonl`
 - `data/processed/preabstract_with_evidence.csv`
 
 ---
 
-## 5.1 One-command reproducibility (Windows PowerShell)
+## 5.1 Evaluation
 
-This project includes a reproducibility script that runs:
+### Baseline normalized evaluation (accuracy per field)
 
-1) Full pipeline (NER → pre-abstract → evaluation)  
-2) Detailed evaluation (metrics + error report)  
+```powershell
+python scripts/evaluate_preabstract.py
+```
 
-From the repository root:
+### Detailed metrics + error report (accuracy / precision / recall / F1)
 
-    powershell -ExecutionPolicy Bypass -File scripts\reproduce.ps1
+```powershell
+python scripts/run_detailed_eval.py
+```
 
-Artifacts are written locally (and are not committed to git):
+Writes:
 
-- `outputs/ner_entities.jsonl`  
-- `data/processed/preabstract_with_evidence.csv`  
-- `outputs/evaluation/eval_metrics.csv`  
-- `outputs/evaluation/eval_errors.csv`  
+- `outputs/evaluation/eval_metrics.csv`
+- `outputs/evaluation/eval_errors.csv`
 
-## Reviewer UI (human-in-the-loop)
+---
+
+## 5.2 Reviewer UI (human-in-the-loop)
 
 This repo includes a lightweight **Streamlit** reviewer UI that lets a user:
 
 - Select a synthetic clinical note (case/note)
-- Review the model’s predicted pre-abstract fields
+- Review predicted registry fields
 - See the evidence snippet used for each prediction
 - Edit any field values as needed
-- Save a structured correction record for audit / QA / iterative improvement
+- Save a structured correction record for QA / audit / future improvement
 
 ### Run the UI
 
@@ -205,6 +185,21 @@ First, ensure artifacts exist (run the pipeline once):
 
 ```powershell
 python scripts/run_full_pipeline.py
+```
+
+Then start the app:
+
+```powershell
+streamlit run app/app.py
+```
+
+Open the URL shown in your terminal (typically `http://localhost:8501`).
+
+### Saved corrections
+
+When you click **Save review record**, the app writes JSON correction files to:
+
+- `outputs/review/`
 
 ---
 
@@ -216,8 +211,8 @@ The demo dataset lives in:
 
 Each row contains:
 
-- `case_id`, `note_id`, `note_type`, `note_date`  
-- `note_text` – synthetic clinical note  
+- `case_id`, `note_id`, `note_type`, `note_date`
+- `note_text` (synthetic clinical note)
 - Ground truth fields:
   - `primary_site_gt`
   - `histology_gt`
@@ -226,33 +221,33 @@ Each row contains:
 
 The dataset is small by design but structured to resemble registry-relevant documentation:
 
-- Breast pathology report with ER/PR/HER2.  
-- Metastatic lung cancer oncology consult.  
-- Colon cancer discharge summary with TNM (pT3N0M0).  
+- Breast pathology report with ER/PR/HER2
+- Metastatic lung cancer oncology consult
+- Colon cancer discharge summary with TNM (pT3N0M0)
 
 ---
 
 ## 7. Field mapping and evidence
 
-The core logic lives in:
+Core logic:
 
 - `src/oncology_registry_copilot/field_mapping.py`
 
 It implements:
 
 - `map_note_to_fields(note_text, entities)` → dictionary of predicted fields, each with:
-  - A `*_pred` value (e.g., `primary_site_pred`)
-  - A `*_evidence` snippet (short span around the source text)
+  - a `*_pred` value (e.g., `primary_site_pred`)
+  - a `*_evidence` snippet (short span around the source text)
 
 The mapping uses a combination of:
 
-- OpenMed entities (labels such as `Cancer`, `Organ`, etc.).
+- OpenMed entities (labels such as `Cancer`, `Organ`, etc.)
 - Regex patterns for:
-  - Histology phrases (carcinoma, adenocarcinoma, etc.).
-  - Stage expressions (e.g., `Stage IV ...`, `pT3N0M0`).
-  - Biomarker patterns (ER, PR, HER2) with local “positive”/“negative” detection.
+  - histology phrases (carcinoma, adenocarcinoma, etc.)
+  - stage expressions (e.g., `Stage IV ...`, `pT3N0M0`)
+  - biomarker patterns (ER, PR, HER2) with local “positive”/“negative” detection
 
-This is deliberately transparent and rule-based, acting as a **bridge** between NER outputs and registry-style fields.
+This is deliberately transparent and rule-based, acting as a bridge between NER outputs and registry-style fields.
 
 ---
 
@@ -260,24 +255,17 @@ This is deliberately transparent and rule-based, acting as a **bridge** between 
 
 Evaluation is implemented in:
 
-- `src/oncology_registry_copilot/pipeline.py` (`evaluate_preabstract`)
+- `src/oncology_registry_copilot/pipeline.py` (normalized evaluation)
+- `src/oncology_registry_copilot/evaluation.py` (detailed metrics + error report)
 
-Key ideas:
+Normalization (to keep metrics clinically meaningful in this demo):
 
-- Compare `_pred` vs `_gt` for each field.
-- Use **field-specific normalization** so metrics are clinically meaningful:
-  - Primary site → collapsed to `breast` / `lung` / `colon`.
-  - Histology → collapsed to patterns like `adenocarcinoma`, `invasive ductal carcinoma`.
-  - Stage → normalize:
-    - “Stage IV (metastatic) …” → `iv`
-    - `pT3N0M0` → `ii` (for this demo dataset)
-  - Biomarkers → `positive` / `negative` / `unknown`, with blanks treated as `unknown`.
-
-The result is a table of:
-
-- `field`, `total_cases`, `correct`, `accuracy`
-
-This shows, in a small but honest way, how the prototype would be evaluated and improved in a real registry environment.
+- Primary site → collapsed to `breast` / `lung` / `colon`
+- Histology → collapsed to patterns like `adenocarcinoma`, `invasive ductal carcinoma`
+- Stage → normalize:
+  - “Stage IV …” → `iv`
+  - `pT3N0M0` → `ii` (for this demo dataset)
+- Biomarkers → `positive` / `negative` / `unknown`, with blanks treated as `unknown`
 
 ---
 
@@ -285,18 +273,17 @@ This shows, in a small but honest way, how the prototype would be evaluated and 
 
 This repository is intentionally limited:
 
-- Tiny, synthetic dataset (3 cases).  
-- No real NAACCR mapping or full registry schema.  
-- Simple rule-based field mapping; no temporal reasoning.  
-- No EHR connectivity or registry software integration.  
+- Tiny synthetic dataset (3 cases)
+- No real NAACCR mapping or full registry schema
+- Simple rule-based field mapping; no temporal reasoning
+- No EHR connectivity or registry software integration
 
 Possible next steps:
 
-- Expand the synthetic dataset and ground truth coverage.  
-- Add temporal models or more advanced rules.  
-- Introduce site-specific configuration for different cancer centers.  
-- Integrate with a simple review UI (web-based evidence viewer).  
-- Experiment with fine-tuned OpenMed models for registry-specific tasks.  
+- Expand the synthetic dataset and ground truth coverage
+- Add temporal reasoning and richer oncology abstractions
+- Improve the reviewer UI (bulk review, export corrections to CSV)
+- Add CI (GitHub Actions) to catch metric regressions on every push
 
 ---
 
@@ -304,7 +291,8 @@ Possible next steps:
 
 This code is:
 
-- For educational and prototyping purposes.  
-- Not validated for clinical use.  
-- Not a medical device.  
-- Not intended to process real patient data without appropriate safeguards, de-identification, and regulatory/compliance review.
+- for educational and prototyping purposes
+- not validated for clinical use
+- not a medical device
+- not intended to process real patient data without appropriate safeguards, de-identification, and compliance review
+

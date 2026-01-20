@@ -33,26 +33,32 @@ def _pick_best(
     return max(candidates, key=lambda e: e.get("confidence", 0.0))
 
 
+# ---------------------------
+# Primary site
+# ---------------------------
+
+
 def infer_primary_site(note_text: str, entities: List[Dict[str, Any]]) -> FieldPrediction:
     """
     Heuristic primary site inference.
 
     Strategy:
-    - Prefer Cancer entities whose text contains organ/site keywords.
+    - Prefer Cancer / Organ entities that contain organ/site keywords.
     - Fallback: search raw text for those keywords.
     """
     site_keywords = [
-        "breast",
-        "lung",
-        "colon",
-        "sigmoid",
-        "right upper lobe",
         "left breast",
+        "right breast",
+        "breast",
+        "right upper lobe",
+        "lung",
         "sigmoid colon",
+        "sigmoid",
+        "colon",
     ]
 
     def has_site_keyword(ent: Dict[str, Any]) -> bool:
-        if ent.get("label") != "Cancer":
+        if ent.get("label") not in {"Cancer", "Organ"}:
             return False
         lower = ent.get("text", "").lower()
         return any(kw in lower for kw in site_keywords)
@@ -79,12 +85,17 @@ def infer_primary_site(note_text: str, entities: List[Dict[str, Any]]) -> FieldP
     return FieldPrediction(value=None, evidence_start=None, evidence_end=None)
 
 
+# ---------------------------
+# Histology
+# ---------------------------
+
+
 def infer_histology(note_text: str, entities: List[Dict[str, Any]]) -> FieldPrediction:
     """
     Histology inference.
 
     Strategy:
-    - Look for Cancer entities containing carcinoma/adenocarcinoma/lymphoma/etc.
+    - Look for Cancer entities containing carcinoma/adenocarcinoma/lymphoma etc.
     """
     histology_terms = ["carcinoma", "adenocarcinoma", "sarcoma", "lymphoma"]
 
@@ -103,7 +114,10 @@ def infer_histology(note_text: str, entities: List[Dict[str, Any]]) -> FieldPred
         )
 
     # Fallback: regex in raw text
-    pattern = re.compile(r"\b(\w+\s+(carcinoma|adenocarcinoma|sarcoma|lymphoma))\b", re.IGNORECASE)
+    pattern = re.compile(
+        r"\b(\w+\s+(carcinoma|adenocarcinoma|sarcoma|lymphoma))\b",
+        re.IGNORECASE,
+    )
     m = pattern.search(note_text)
     if m:
         return FieldPrediction(
@@ -113,6 +127,11 @@ def infer_histology(note_text: str, entities: List[Dict[str, Any]]) -> FieldPred
         )
 
     return FieldPrediction(value=None, evidence_start=None, evidence_end=None)
+
+
+# ---------------------------
+# Stage
+# ---------------------------
 
 
 def infer_stage(note_text: str, entities: List[Dict[str, Any]]) -> FieldPrediction:
@@ -127,7 +146,7 @@ def infer_stage(note_text: str, entities: List[Dict[str, Any]]) -> FieldPredicti
         if ent.get("label") != "Cancer":
             return False
         text = ent.get("text", "")
-        return text.strip().startswith("Stage")
+        return text.strip().lower().startswith("stage")
 
     best = _pick_best(entities, is_stage_entity)
     if best:
@@ -138,7 +157,7 @@ def infer_stage(note_text: str, entities: List[Dict[str, Any]]) -> FieldPredicti
         )
 
     # TNM style, e.g. pT3N0M0
-    tnm_pattern = re.compile(r"\bp?[Tt]\d+[AN]\d+M\d+\b")
+    tnm_pattern = re.compile(r"\bp?[Tt]\d+[Nn]\d+M\d+\b")
     m = tnm_pattern.search(note_text)
     if m:
         return FieldPrediction(
@@ -160,29 +179,38 @@ def infer_stage(note_text: str, entities: List[Dict[str, Any]]) -> FieldPredicti
     return FieldPrediction(value=None, evidence_start=None, evidence_end=None)
 
 
+# ---------------------------
+# Biomarkers
+# ---------------------------
+
+
 def _find_marker_status(note_text: str, marker_patterns: List[str]) -> FieldPrediction:
     """
-    Find biomarker status by looking near the marker name for 'positive' or 'negative'.
+    Find biomarker status by looking just AFTER the marker name
+    for 'positive' or 'negative'. This avoids windows that
+    include other markers with opposite polarity.
     """
     text = note_text
     lower = text.lower()
 
-    # Find marker occurrence
     marker_regex = re.compile("|".join(marker_patterns), re.IGNORECASE)
     m = marker_regex.search(text)
     if not m:
         return FieldPrediction(value=None, evidence_start=None, evidence_end=None)
 
-    # Define a window around the marker
-    start = max(0, m.start() - 80)
-    end = min(len(text), m.end() + 80)
-    window = lower[start:end]
+    # Look in a window AFTER the marker mention
+    window_after = lower[m.end() : m.end() + 120]
 
     status = None
-    if "negative" in window:
-        status = "negative"
-    elif "positive" in window or "strongly positive" in window:
+
+    pos_index = window_after.find("positive")
+    neg_index = window_after.find("negative")
+
+    # Determine which term appears first, if any
+    if pos_index != -1 and (neg_index == -1 or pos_index < neg_index):
         status = "positive"
+    elif neg_index != -1:
+        status = "negative"
 
     return FieldPrediction(
         value=status,
@@ -206,9 +234,14 @@ def infer_her2_status(note_text: str) -> FieldPrediction:
     return _find_marker_status(note_text, patterns)
 
 
+# ---------------------------
+# Main mapping entry point
+# ---------------------------
+
+
 def map_note_to_fields(note_text: str, entities: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
-    Main entry point: given note text + entities, return predicted fields with evidence.
+    Given note text + entities, return predicted fields with evidence.
     """
     primary_site = infer_primary_site(note_text, entities)
     histology = infer_histology(note_text, entities)

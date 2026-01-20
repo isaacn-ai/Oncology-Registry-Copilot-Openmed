@@ -1,14 +1,14 @@
 ﻿from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any
 
 import pandas as pd
 import streamlit as st
 
-APP_TITLE = "Oncology Registry Copilot (OpenMed) - Reviewer UI"
+APP_TITLE = "Oncology Registry Copilot (OpenMed) — Reviewer UI"
 
 DATA_PATH = Path("data/processed/preabstract_with_evidence.csv")
 CORRECTIONS_DIR = Path("outputs/review")
@@ -33,7 +33,8 @@ def load_data() -> pd.DataFrame:
             "or:\n"
             "  powershell -ExecutionPolicy Bypass -File scripts/reproduce.ps1"
         )
-    return pd.read_csv(DATA_PATH)
+    df = pd.read_csv(DATA_PATH)
+    return df
 
 
 def safe_str(x) -> str:
@@ -42,60 +43,21 @@ def safe_str(x) -> str:
     return str(x)
 
 
+def utc_now_z() -> str:
+    """
+    Timezone-aware UTC timestamp for audit/logging.
+    Returns ISO-8601 with trailing 'Z' (e.g., 2026-01-20T18:47:30Z).
+    """
+    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
 def save_correction(payload: Dict[str, Any]) -> Path:
-    ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     case_id = payload.get("case_id", "unknown")
     note_id = payload.get("note_id", "unknown")
     path = CORRECTIONS_DIR / f"correction_{case_id}_{note_id}_{ts}.json"
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return path
-
-
-def export_corrections_to_csv() -> Path:
-    """
-    Export correction JSON files into a single CSV for QA / audit / training loops.
-    This mirrors scripts/export_review_corrections.py logic, but runs in-app.
-    """
-    out_path = CORRECTIONS_DIR / "review_corrections_export.csv"
-    files = sorted(CORRECTIONS_DIR.glob("correction_*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
-
-    rows = []
-    for fp in files:
-        try:
-            d = json.loads(fp.read_text(encoding="utf-8"))
-        except Exception:
-            continue
-
-        row = {
-            "file": fp.name,
-            "reviewed_at_utc": d.get("reviewed_at_utc") or "",
-            "case_id": d.get("case_id"),
-            "note_id": d.get("note_id"),
-            "note_type": d.get("note_type"),
-            "note_date": d.get("note_date"),
-            "source_csv": d.get("source_csv"),
-            "notes": d.get("notes"),
-        }
-
-        orig = d.get("predictions_original") or {}
-        edit = d.get("predictions_edited") or {}
-        ev = d.get("evidence") or {}
-
-        for k, _label in FIELDS:
-            row[f"orig_{k}"] = orig.get(k)
-            row[f"edit_{k}"] = edit.get(k)
-            row[f"evidence_{k}"] = ev.get(k)
-
-        rows.append(row)
-
-    df = pd.DataFrame(rows)
-    if "reviewed_at_utc" in df.columns:
-        df["reviewed_at_sort"] = pd.to_datetime(df["reviewed_at_utc"], errors="coerce")
-        df = df.sort_values(by="reviewed_at_sort", ascending=False).drop(columns=["reviewed_at_sort"])
-
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(out_path, index=False)
-    return out_path
 
 
 def main() -> None:
@@ -106,25 +68,21 @@ def main() -> None:
         "Synthetic demo only."
     )
 
-    # Sidebar: utilities
+    df = load_data()
+
+    # Sidebar: export corrections
     st.sidebar.header("Select a note")
 
+    # (Optional) one-click export (writes to outputs/review/review_corrections_export.csv)
     if st.sidebar.button("Export corrections to CSV"):
+        import subprocess
         try:
-            out = export_corrections_to_csv()
-            st.sidebar.success(f"Exported: {out.as_posix()}")
-            # Preview (small)
-            try:
-                preview = pd.read_csv(out).head(5)
-                st.sidebar.caption("Preview (first 5 rows)")
-                st.sidebar.dataframe(preview, use_container_width=True)
-            except Exception:
-                pass
+            subprocess.check_call(["python", "scripts/export_review_corrections.py"])
+            st.sidebar.success("Exported to outputs/review/review_corrections_export.csv")
         except Exception as e:
             st.sidebar.error(f"Export failed: {e}")
 
-    df = load_data()
-
+    # Sidebar: pick a case
     options = [
         f"{row.case_id} | {row.note_id} | {row.note_type} | {row.note_date}"
         for row in df.itertuples(index=False)
@@ -142,9 +100,11 @@ def main() -> None:
 
     with right:
         st.subheader("Pre-abstract fields (review)")
+
         st.markdown("**Legend:** predicted value + evidence snippet; edit if needed.")
         st.write("")
 
+        # Build an editable review form
         with st.form("review_form", clear_on_submit=False):
             edited: Dict[str, str] = {}
             evidence: Dict[str, str] = {}
@@ -204,8 +164,10 @@ def main() -> None:
                     "note_type": safe_str(row.get("note_type")),
                     "note_date": safe_str(row.get("note_date")),
                     "source_csv": str(DATA_PATH),
-                    "reviewed_at_utc": datetime.utcnow().isoformat(timespec="seconds") + "Z",
-                    "predictions_original": {k: safe_str(row.get(f"{k}_pred")) for k, _ in FIELDS},
+                    "reviewed_at_utc": utc_now_z(),
+                    "predictions_original": {
+                        k: safe_str(row.get(f"{k}_pred")) for k, _ in FIELDS
+                    },
                     "predictions_edited": edited,
                     "evidence": evidence,
                     "notes": "Synthetic demo review record. Not clinical use.",
@@ -233,4 +195,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

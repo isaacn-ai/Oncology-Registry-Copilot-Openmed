@@ -1,0 +1,18 @@
+﻿# Normalize text files in the repo to LF to avoid noisy diffs across OSes
+* text=auto eol=lf
+
+# Explicit text rules for common file types
+*.py    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.md    text eol=lf
+*.txt   text eol=lf
+*.json  text eol=lf
+*.jsonl text eol=lf
+*.csv   text eol=lf
+
+# PowerShell scripts: keep LF in repo as well (Windows can still run them)
+*.ps1   text eol=lf
+
+# Batch files are Windows-only; keep CRLF for compatibility
+*.bat   text eol=crlf

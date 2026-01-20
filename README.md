@@ -168,6 +168,25 @@ Outputs:
 
 - `outputs/ner_entities.jsonl`  
 - `data/processed/preabstract_with_evidence.csv`
+---
+
+## 5.1 One-command reproducibility (Windows PowerShell)
+
+This project includes a reproducibility script that runs:
+
+1) Full pipeline (NER → pre-abstract → evaluation)  
+2) Detailed evaluation (metrics + error report)  
+
+From the repository root:
+
+    powershell -ExecutionPolicy Bypass -File scripts\reproduce.ps1
+
+Artifacts are written locally (and are not committed to git):
+
+- `outputs/ner_entities.jsonl`  
+- `data/processed/preabstract_with_evidence.csv`  
+- `outputs/evaluation/eval_metrics.csv`  
+- `outputs/evaluation/eval_errors.csv`  
 
 ---
 
